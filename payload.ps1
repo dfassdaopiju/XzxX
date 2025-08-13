@@ -54,6 +54,3 @@ $demoFiles | ForEach-Object {
 
 Set-ItemProperty -Path "H:\info.txt" -Name Attributes -Value ([System.IO.FileAttributes]::Hidden)
 Set-ItemProperty -Path "H:\keylog.txt" -Name Attributes -Value ([System.IO.FileAttributes]::Hidden)
-
-Write-Host "Operacja zakończona! Pliki dostępne na dysku H:"
-Write-Host "UWAGA: Skrypt ma wyłącznie charakter edukacyjny."
