@@ -51,6 +51,3 @@ $demoFiles | ForEach-Object {
     Rename-Item -Path $_.FullName -NewName $newName
     Set-Content -Path ($_.DirectoryName + "\" + $newName + ".README") -Value "To jest symulacja zaszyfrowanego pliku. W celach edukacyjnych."
 }
-
-Set-ItemProperty -Path "H:\info.txt" -Name Attributes -Value ([System.IO.FileAttributes]::Hidden)
-Set-ItemProperty -Path "H:\keylog.txt" -Name Attributes -Value ([System.IO.FileAttributes]::Hidden)
